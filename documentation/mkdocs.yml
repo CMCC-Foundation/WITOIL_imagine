@@ -1,0 +1,21 @@
+site_name: Medslik-II Documentation
+site_url: https://cmcc-foundation.github.io/WITOIL_iMagine/
+theme:
+  name: material
+  features: 
+     - navigation.instant
+     - navigation.tabs
+     - navigation.tabs.sticky
+     - navigation.top
+  icon:
+    repo: fontawesome/brands/github-alt 
+# Page tree
+nav:
+  - Home: index.md
+  - About:
+    - Description:
+      - Description: about/Description/Description.md
+  - Getting started:
+    - Setting Up Environment: getting started/Setting Up Environment.md
+  
+

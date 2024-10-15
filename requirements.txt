@@ -1,0 +1,14 @@
+shapely
+pyproj
+xarray
+geopandas
+pandas
+mpld3
+netcdf4
+dask
+matplotlib
+scipy
+ipython
+cdsapi
+copernicusmarine
+compilers
