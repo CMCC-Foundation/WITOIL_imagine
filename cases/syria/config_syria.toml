@@ -18,16 +18,16 @@
     download_data = true
     download_curr = true
     download_wind = true
-    copernicus_user = "my_username"
-    copernicus_password = "my_password"
+    copernicus_user = "jramos7"
+    copernicus_password = "Hamstervoador1"
 [input_files]
     set_domain = false
     delta = [0.75] # default distance in degrees to download or crop data in case lat and lon areas are not provided
     lat = [9, 12]
     lon = [-62, -65]
 [input_files.dtm]
-    bathymetry_path = "data/gebco/GEBCO_2023.nc" # GEBCO 2023 bathymetry file
-    coastline_path = "data/gshhs/f/GSHHS_f_L1.shp" # coastline shapefile gshhs
+    bathymetry_path = "data/gebco/GEBCO_2024_sub_ice_topo.nc" # GEBCO 2024 bathymetry file
+    coastline_path = "data/gshhs/GSHHS_f_L1.shp" # coastline shapefile gshhs
 [input_files.metoce]
     oce_data_path = "path/to/oce/data"
     met_data_path = "path/to/met/data"

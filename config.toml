@@ -1,49 +1,41 @@
-# NOTE: this config is provided as a TEMPLATE, it should be changed by the user before using it.
 [simulation]
-    name = "my_experiment" # name of the simulation.
-    experiment_path = "path/to/user/output/folder" # path where experiment folder should be placed
-    start_datetime = 2021-08-21T03:43:00 # start date of the simulation
-    sim_length = 48.0 # length of the simulation in HOURS
-    spill_lat = [35.25] # lat of oil spill (deg N)
-    spill_lon = [35.90] # lon of oil spill (deg E)
-    spill_duration = [0.0] # duration of oil spill HOURS. = 0.0 for instantaneous release
-    spill_rate = [27.78] # spill rate TONS/HOUR
+    name = "alegria" # name of the simulation. If None or "", default name is used.
+    start_datetime = 2022-04-13T08:41:00 # start date of the simulation
+    sim_length = 96.0 # length of the simulation in HOURS
+    time_step = 1800 # simulation time step in SECONDS
+    spill_lat = [33.661] # lat of oil spill
+    spill_lon = [32.697] # lon of oil spill
+    spill_duration = [0.0] # duration of oil spill HOURS. = 0 for instantaneous release
+    spill_rate = [100.5] # spill rate TONS/HOUR
     slick_age = [0.0] # age of oil slick in HOURS
-    oil = [28] # either oil api (number) or name (string), e.g. ["Ragusa"]. Please, consider that name must be exact.
-    area_spill = true
-    area_vertex = false # comprehends thre levels of lists. 1st: all slicks. 2nd: individual slick. 3rd: Coordinates of each vertex in each individual slick
+    oil = [28] #either api of the oil or name, considering that name must be exact
     multiple_slick = false
-    advanced_parameters = false # if = true, user must provide parameters.toml file
-    advanced_parameters_path = "src/parameters.toml" # this path shuld be provided only if "advanced_parameters" is = true
+    advanced_parameters = false # user must provide config2.txt 
 [download]
-    download_data = false # = true if data are not provided by the user
-    download_curr = false # = true : OCE data are downloaded from Copernicus Marine Service
-    download_wind = false # = true : MET data are downloaded from ECMWF ERA5 product
-    copernicus_user = "my_username"
-    copernicus_password = "my_password"
+    download_data = true
+    download_curr = true
+    download_wind = true
+    copernicus_user = 'iruizatake'
+    copernicus_password = 'Hamburguer1!'
+    ecmwf_api = 'None'
 [input_files]
-    set_domain = true # If the user wants to set the domain for cropping/preprocessing input data
-    lat = [31, 38]
-    lon = [32, 37]
-    delta = [0.75] # default domain length in degrees (applied to both lon/lat), to download or crop data
-    # note: delta is used only if set_domain = false
+    preproc_path = "cases/" # where preprocessed MET/OCE data should be placed
+    set_domain = false
+    delta = [2.0] #default distance in degrees to download or crop data in case lat and lon areas are not provided 
+    lat = [39, 41]
+    lon = [17, 19.5]
     [input_files.dtm]
         bathymetry_path = "data/gebco/GEBCO_2023.nc" # GEBCO 2023 bathymetry file
         coastline_path = "data/gshhs/f/GSHHS_f_L1.shp" # coastline shapefile gshhs
-    [input_files.metoce]
-        oce_data_path = "path/to/oce/data" # to provide if dowload_curr = false
-        met_data_path = "path/to/met/data" # to provide if dowload_wind = false
-    [input_files.shapefile]
-        shape_path = "path/to/shapefile" # add "path/to/shapefile" in case you want to start from shapefile.
-        # set shape_path = false or "none" if you do not want to start from a shapefile
 [run_options]
-    preprocessing = true # = false if no preprocessing at all should be performed
-    preprocessing_metoce = true # MET/OCE data preprocessing
-    preprocessing_dtm = true # bathymetry and coastline preprocessing
-    run_model = true # run oil spill model
+    preprocessing = true
+    preprocessing_metoce = true
+    preprocessing_dtm = true
+    run_model = true
     postprocessing = true # conversion from particles to concentration
 [plot_options]
-    plotting = true # = true if results should be plotted (it should be used only if postprocessing = true)
-    # Domain for plotting
-    plot_lon = [35.5,36.5] # [min lon, max lon]
-    plot_lat = [35,36] # [min lat, max lat]]
+    plotting = true
+    # Domain for plotting [min lon, max lon, min lat, max lat]
+    define_boundaries = false
+    plot_lon = [-64.1,-63.5]
+    plot_lat = [10.6,11]
