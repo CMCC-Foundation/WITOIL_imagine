@@ -9,6 +9,7 @@ import datetime
 import xarray as xr
 import geopandas as gpd
 from shapely.geometry import Point
+from pyproj import CRS
 
 # numerical and plotting libs
 import numpy as np
@@ -151,7 +152,7 @@ class Utils:
             f.close()
 
     @staticmethod
-    def write_mrc(ds, simname=None):
+    def write_mrc(ds, exp_folder=None):
         """
         This function write the currents and sea surface temperature files for Medslik-II.
 
@@ -226,7 +227,7 @@ class Utils:
                 day = dt.day
             # writing the current files
             with open(
-                f"cases/{simname}/oce_files/merc{dt.year-2000:02d}{dt.month:02d}{day:02d}{hour:02d}.mrc",
+                f"{exp_folder}/oce_files/merc{dt.year-2000:02d}{dt.month:02d}{day:02d}{hour:02d}.mrc",
                 "w",
             ) as f:
                 f.write(
@@ -247,7 +248,7 @@ class Utils:
         print("Sea State variables written")
 
     @staticmethod
-    def write_eri(ds, date, simname=None):
+    def write_eri(ds, date, exp_folder=None):
         """
         This function write the wind velocity as 10 m files for Medslik-II.
 
@@ -278,7 +279,7 @@ class Utils:
 
             # writing the wind files
             with open(
-                f"cases/{simname}/met_files/erai{dt.year-2000:02d}{dt.month:02d}{dt.day:02d}.eri",
+                f"{exp_folder}/met_files/erai{dt.year-2000:02d}{dt.month:02d}{dt.day:02d}.eri",
                 "w",
             ) as file:
                 file.write(
@@ -310,7 +311,7 @@ class Utils:
             pass
 
     @staticmethod
-    def process_mrc(i, concat, simname=None):
+    def process_mrc(i, concat, exp_folder=None):
         rec = concat.isel(time=i)
         # get the datetime values from that instant
         try:
@@ -377,7 +378,7 @@ class Utils:
 
         # writing the current files
         with open(
-            f"cases/{simname}/oce_files/merc{dt.year-2000:02d}{month:02d}{day:02d}{hour:02d}.mrc",
+            f"{exp_folder}/oce_files/merc{dt.year-2000:02d}{month:02d}{day:02d}{hour:02d}.mrc",
             "w",
         ) as f:
             f.write(
@@ -397,7 +398,7 @@ class Utils:
                 )
 
     @staticmethod
-    def parallel_processing_mrc(concat, simname=None):
+    def parallel_processing_mrc(concat, exp_folder=None):
         """
         Define a function to process multiple time steps in parallel
         """
@@ -405,7 +406,7 @@ class Utils:
         num_time_steps = len(concat.time)
         pool = multiprocessing.Pool()  # Create a pool of workers
         results = [
-            pool.apply_async(Utils.process_mrc, args=(i, concat, simname))
+            pool.apply_async(Utils.process_mrc, args=(i, concat, exp_folder))
             for i in range(num_time_steps)
         ]
         pool.close()  # Close the pool, no more tasks can be submitted
@@ -455,6 +456,42 @@ class Utils:
                 ds = ds.rename({old_name: new_name})
 
         return ds
+    
+    @staticmethod
+    def oil_volume_shapefile(config, dens=0.922, thick=0.00001):
+        """
+        This method considers that the simulation will start from a shapefile, providing an area.
+
+        Thefore, volume of oil will be calculated from it, since it is difficult to estimate without the proper knowledge.
+
+        density and thickness are defined as standard, but could be modified for different oil slick behaviour or oil characteristic.
+
+        """
+
+        obs = gpd.read_file(config["input_files"]["shapefile"]["shape_path"])
+
+        ######## OBTAINING THE VOLUME FOR THE GIVEN SHAPEFILE ########
+
+        # Get the centroid from all the slicks in the observation or modeled results
+        centroid_lon = obs.centroid.x.mean()
+        centroid_lat = obs.centroid.y.mean()
+
+        # Calculate the UTM zone
+        utm_zone = int((centroid_lon + 180) / 6) + 1
+
+        # Define the UTM CRS based on the determined zone
+        utm_crs = CRS.from_epsg(32600 + utm_zone)  # EPSG code for UTM zones
+
+        # Reproject the GeoDataFrame to UTM
+        gdf_utm = obs.to_crs(utm_crs)
+
+        # Calculate the area (in square meters) of the reprojected shapefile
+        area = gdf_utm.area.sum()
+
+        # Obtain the volume from the calculated area, density and thickness.
+        volume = np.round(area * dens * thick, 2)
+
+        return volume
 
 
 if __name__ == "__main__":

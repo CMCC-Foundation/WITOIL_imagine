@@ -12,15 +12,12 @@ from datetime import datetime
 from argparse import ArgumentParser
 from glob import glob
 
-from src.preprocessing.preprocessing_mdk3 import PreProcessing
-from src.postprocessing.postprocessing_mdk3 import create_concentration_dataset
-from src.plot.plot_mdk3 import MedslikIIPlot
-from src.utils.config import Config
-from src.utils.utils import Utils
-from download.download_era5_parser import *
-from download.download_copernicus_parser import *
-
-import logging
+# Import medslik modules
+from src.utils import Utils, Config, read_oilbase
+from src.download import *
+from src.preprocessing import PreProcessing
+from src.postprocessing import PostProcessing
+from src.plot import MedslikIIPlot
 
 # Create a logger
 logger = logging.getLogger(__name__)
@@ -38,24 +35,33 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 
-class Main:
+class MedslikII:
     """
     This class embeds the MAIN code of medslik-II software.
     """
 
-    def __init__(self, config_path: str) -> None:
+    def __init__(self, config: dict) -> None:
         """
         Class constructor given config file path.
         """
-        config = Config(config_path).config_dict
         self.config = config
-        self.config_path = config_path
-        self.root_directory = f"{self.config['input_files']['preproc_path']}{config['simulation']['name']}/"
-        self.out_directory = f"{self.root_directory}/out_files/"
-        self.out_figures = f"{self.out_directory}figures/"
+        self.medslik_directory = os.path.dirname(os.path.abspath(__file__))
+        # Create experiment directories
+        self.root_directory = os.path.join(
+            self.config["simulation"]["experiment_path"], config["simulation"]["name"]
+        )
+        os.makedirs(self.root_directory, exist_ok=True)
+        self.out_directory = os.path.join(self.root_directory, "out_files")
+        os.makedirs(self.out_directory, exist_ok=True)
+        self.out_figures = os.path.join(self.out_directory, "figures")
+        os.makedirs(self.out_figures, exist_ok=True)
+        self.xp_directory = os.path.join(self.root_directory, "xp_files")
+        os.makedirs(self.xp_directory, exist_ok=True)
         spill_lat = np.array(self.config["simulation"]["spill_lat"])
         self.n_spill_points = np.shape(spill_lat)[0]
+        # Domain of the simulation will be defined under what the user set in config files
         if config["input_files"]["set_domain"] == True:
+            logger.info("User defined domain")
             lat_min, lat_max = (
                 config["input_files"]["lat"][0],
                 config["input_files"]["lat"][1],
@@ -64,8 +70,10 @@ class Main:
                 config["input_files"]["lon"][0],
                 config["input_files"]["lon"][1],
             )
-
+        #Domain is based on a delta degrees
         else:
+            logger.info(f"Domain defined around simulation point, \
+                using {config['input_files']['delta'][0]} degrees")
             latitude = config["simulation"]["spill_lat"][0]
             longitude = config["simulation"]["spill_lon"][0]
 
@@ -77,11 +85,16 @@ class Main:
                 longitude - config["input_files"]["delta"][0],
                 longitude + config["input_files"]["delta"][0],
             )
-
         self.lat_min, self.lat_max = lat_min, lat_max
         self.lon_min, self.lon_max = lon_min, lon_max
+        self.apply_aging_effects()
+        self.initial_checking()
 
     def apply_aging_effects(self) -> None:
+        """
+        Consider aging when setting
+        the simulation length and the start datetime.
+        """
         oilspill = self.config["simulation"]
         age = oilspill["slick_age"]
         if self.n_spill_points > 1:
@@ -91,29 +104,46 @@ class Main:
         self.config["simulation"] = oilspill
 
     def initial_checking(self):
-
+        """
+        Check if any issue might derive from configuration.
+        """
         # checking if the coordinates are on land
         lat = self.config["simulation"]["spill_lat"]
         lon = self.config["simulation"]["spill_lon"]
+        # function to check if the spill location was put into land
         coastline_path = self.config["input_files"]["dtm"]["coastline_path"]
         sea = Utils.check_land(lon, lat, coastline_path)
-
         if sea == 0:
             raise ValueError(
                 "Your coordinates lie within land. Please check your values again"
             )
-
         # checking dates
         dt = Utils.validate_date(self.config["simulation"]["start_datetime"])
+        logger.info("No major issues found on dates and oil spill coordinates")
 
-        logger.info("No major issues found on dates and oil spill coordimates")
+        # checking if starting from area spill
+        if self.config["input_files"]["shapefile"]["shape_path"]:
+            shapefile_path = self.config["input_files"]["shapefile"]["shape_path"]
+            # if simulation starts from shapefile, the volume will be disconsidered
+            if os.path.exists(shapefile_path):
+                logger.info(
+                    f"Simulation initial conditions area spill are provided on \
+                        {self.config['input_files']['shapefile']['shape_path']}. \
+                        Spill rate from config files will not be considered"
+                )
+                volume = Utils.oil_volume_shapefile(self.config)
 
-    def data_download_medslik(self):
+                # Correcting volume on the config object
+                self.config["simulation"]["spill_rate"] = volume
 
-        config = self.config
-
-        lat_min, lat_max = self.lat_min, self.lat_max
-        lon_min, lon_max = self.lon_min, self.lon_max
+    @staticmethod
+    def data_download_medslik(
+        config: dict, domain: list[float], root_directory: str
+    ) -> None:
+        """
+        Download METOCE datasets.
+        """
+        lon_min, lon_max, lat_min, lat_max = domain
         copernicus_user = config["download"]["copernicus_user"]
         copernicus_pass = config["download"]["copernicus_password"]
 
@@ -124,10 +154,7 @@ class Main:
         inidate = date - pd.Timedelta(hours=1)
         enddate = date + pd.Timedelta(hours=config["simulation"]["sim_length"] + 24)
 
-        if (
-            30.37 < float(lat_min) < float(lat_max) < 45.7
-            and -17.25 < float(lon_min) < float(lon_max) < 35.9
-        ):
+        if 30.37 < np.mean([lat_min,lat_max]) < 45.7 and -17.25 < np.mean([lon_min,lon_max]) < 36:
             down = "local"
         else:
             down = "global"
@@ -158,7 +185,7 @@ class Main:
 
             subprocess.run(
                 [
-                    f'cp {output_path}*{identifier}*{config["simulation"]["name"]}*.nc {self.root_directory}oce_files/'
+                    f'cp {output_path}*{identifier}*{config["simulation"]["name"]}*.nc {root_directory}/oce_files/'
                 ],
                 shell=True,
             )
@@ -168,6 +195,8 @@ class Main:
             )
 
         if config["download"]["download_wind"]:
+            # ensuring .cdsapirc is created in the home directory
+            write_cds(config["download"]["cds_token"])
 
             output_path = "data/ERA5/"
             output_name = output_path + "era5_winds10_{}_{}_mdk.nc".format(
@@ -189,7 +218,7 @@ class Main:
 
             subprocess.run(
                 [
-                    f'cp {output_path}*{identifier}*{config["simulation"]["name"]}*.nc {self.root_directory}met_files/'
+                    f'cp {output_path}*{identifier}*{config["simulation"]["name"]}*.nc {root_directory}/met_files/'
                 ],
                 shell=True,
             )
@@ -198,34 +227,51 @@ class Main:
                 shell=True,
             )
 
-    def run_preproc(config):
+    def run_preproc(config: dict, exp_folder: str, lon_min, lon_max, lat_min, lat_max):
+        """
+        Run preprocessing.
+        """
 
-        preproc = PreProcessing(
-            config=config,
-            input_folder=None,
-            preproc_data_path=config["input_files"]["preproc_path"],
-        )
-
+        domain = [lon_min, lon_max, lat_min, lat_max]
+        preproc = PreProcessing(config=config, exp_folder=exp_folder, domain=domain)
+        # Create folders
         preproc.create_directories()
 
         # download data if needed
         if config["download"]["download_data"] == True:
-            main.data_download_medslik()
+            MedslikII.data_download_medslik(config, domain, exp_folder)
 
         if config["run_options"]["preprocessing"]:
 
             if config["run_options"]["preprocessing_metoce"]:
-                preproc.process_currents()
-                preproc.process_winds()
+                oce_path = config["input_files"]["metoce"]["oce_data_path"]
+                met_path = config["input_files"]["metoce"]["met_data_path"]
+                if oce_path == "":
+                    oce_path = None
+                if met_path == "":
+                    met_path = None
+                #create Medslik-II current file inputs
+                preproc.process_currents(oce_path=f"{exp_folder}/oce_files/")
+                #create Medslik-II wind file inputs
+                preproc.process_winds(met_path=f"{exp_folder}/met_files/")
 
             if config["run_options"]["preprocessing_dtm"]:
+               #use the same grid on currents to crop bathymetry
                 preproc.common_grid()
+                #create Medslik-II bathymetry file inputs
                 preproc.process_bathymetry(
                     config["input_files"]["dtm"]["bathymetry_path"]
                 )
+                #create Medslik-II coastline file inputs
                 preproc.process_coastline(
                     config["input_files"]["dtm"]["coastline_path"]
                 )
+            
+            if config["input_files"]["shapefile"]["shape_path"]:
+                    shapefile_path = config["input_files"]["shapefile"]["shape_path"]
+                    if os.path.exists(shapefile_path):
+                        # using an area spill identified on a shapefile to generate initial conditions
+                        preproc.process_initial_shapefile()
 
             spill_dictionary = {}
             if main.n_spill_points > 1:
@@ -286,7 +332,7 @@ class Main:
 
     def run_medslik_sim(self, simdir, simname, separate_slicks=False):
 
-        # model directory. Couls be changed, but will remain fixed for the time being.
+        # model directory. Could be changed, but will remain fixed for the time being.
         model_dir = "src/model/"
 
         day = self.config["simulation"]["start_datetime"].day
@@ -392,9 +438,10 @@ class Main:
 
 
 if __name__ == "__main__":
-
+    # Logging first info
     logger.info("Starting Medslik-II oil spill simulation")
 
+    # Config as argument
     parser = ArgumentParser(
         description="Medslik-II # oil spill fate and transport model"
     )
@@ -412,24 +459,38 @@ if __name__ == "__main__":
         config_path = os.path.join("config.toml")
 
     logger.info("Defining the main object")
-    main = Main(config_path)
+    config = Config(config_path).config_dict
+
+    main = MedslikII(config)
+
+    shutil.copy(config_path, os.path.join(main.xp_directory, "config.toml"))
 
     # performing initial checking
     main.initial_checking()
 
-    logger.info("Starting pre processing")
-    preproc = Main.run_preproc(main.config)
-    logger.info("End of pre processing")
+# Run preprocessing
+    logger.info("Starting pre processing ... ")
+    preproc = MedslikII.run_preproc(
+        main.config,
+        main.root_directory,
+        main.lon_min,
+        main.lon_max,
+        main.lat_min,
+        main.lat_max,
+    )
+    logger.info("End of pre processing ...")
 
+    # Run model
     if main.config["run_options"]["run_model"]:
         logger.info("Running Medslik-II simulation")
         main.run_medslik_sim(
             "cases/", main.config["simulation"]["name"], separate_slicks=False
         )
 
+    #performing post processing
     if main.config["run_options"]["postprocessing"]:
         multiple_slick = main.config["simulation"]["multiple_slick"]
-        create_concentration_dataset(
+        PostProcessing.create_concentration_dataset(
             lon_min=main.lon_min,
             lon_max=main.lon_max,
             lat_min=main.lat_min,
@@ -438,23 +499,14 @@ if __name__ == "__main__":
             multiple_slick=multiple_slick,
         )
 
+    #plotting the results
     if main.config["plot_options"]["plotting"]:
         mplot = MedslikIIPlot(main)
-        available_plots = ["pyNGL", "Matplotlib"]
-        plot_product = available_plots[0]
-        match plot_product:
-            case "pyNGL":
-                mplot.plot_pyngl(plot_step=12, concentration_range=None)
-            case "Matplotlib":
-                mplot.plot_matplotlib()
-            case _:
-                print("Plotting using default pyNGL")
-                mplot.plot_pyngl(plot_step=12, concentration_range=None)
+        mplot.plot_matplotlib(main.lon_min,main.lon_max,main.lat_min,main.lat_max)
         try:
             mplot.plot_mass_balance()
         except:
             pass
-        mplot.create_gif()
 
     shutil.copy("medslik_run.log", f"{main.out_directory}medslik_run.log")
 

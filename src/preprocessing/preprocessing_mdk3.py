@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, shutil
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -21,18 +21,12 @@ class PreProcessing:
     This class embeds functions for pre-processing, with a user-interface purpose.
     """
 
-    def __init__(
-        self,
-        config : object,
-        input_folder: str,
-        preproc_data_path: str,
-    ) -> None:
+    def __init__(self, config: dict, exp_folder: str, domain=list[float]) -> None:
         """
         Class constructor.
         """
-        self.input_folder = input_folder
-        self.preproc_data_path = preproc_data_path
-        os.makedirs(preproc_data_path, exist_ok=True)
+        self.exp_folder = exp_folder
+        os.makedirs(exp_folder, exist_ok=True)
         # - start_date and end_date: start and end data of the pre-processing
         self.config = config
         day = config["simulation"]["start_datetime"].day
@@ -47,40 +41,74 @@ class PreProcessing:
         self.date_list = pd.date_range(start_date, end_date, freq='D')
         self.simname = config["simulation"]["name"]
         self.grid = None
+        self.domain = domain
 
     def create_directories(self):
-        os.makedirs(f'{self.preproc_data_path}/{self.simname}',exist_ok=True)
-        os.makedirs(f'{self.preproc_data_path}/{self.simname}/oce_files',exist_ok=True)
-        os.makedirs(f'{self.preproc_data_path}/{self.simname}/met_files',exist_ok=True)
-        os.makedirs(f'{self.preproc_data_path}/{self.simname}/bnc_files',exist_ok=True)
-        os.makedirs(f'{self.preproc_data_path}/{self.simname}/xp_files',exist_ok=True)
-        os.makedirs(f'{self.preproc_data_path}/{self.simname}/out_files',exist_ok=True)
-        os.makedirs(f'{self.preproc_data_path}/{self.simname}/detections',exist_ok=True)
+        os.makedirs(f'{self.exp_folder}/oce_files',exist_ok=True)
+        os.makedirs(f'{self.exp_folder}/met_files',exist_ok=True)
+        os.makedirs(f'{self.exp_folder}/bnc_files',exist_ok=True)
+        os.makedirs(f'{self.exp_folder}/xp_files',exist_ok=True)
+        os.makedirs(f'{self.exp_folder}/out_files',exist_ok=True)
+        os.makedirs(f'{self.exp_folder}/detections',exist_ok=True)
 
-    def process_currents(self):
-        
+    def process_currents(self, oce_path: str = None):
+
         logger.info("Pre processing currents")
-        #opening all files in the directory and concatenating them automatically through open_mfdataset
-        concat = xr.open_mfdataset(f'{self.preproc_data_path}/{self.simname}/oce_files/*.nc',combine='nested')
+        lon_min, lon_max, lat_min, lat_max = self.domain
+        # opening all files in the directory and concatenating them automatically through open_mfdataset
+        if oce_path is None:
+            oce_path = f"{self.exp_folder}/oce_files/"
+        oce_path = os.path.join(oce_path, "*.nc")
+        if glob(oce_path) == []:
+            oce_path = f"{self.exp_folder}/oce_files/*.nc"
+        concat = xr.open_mfdataset(oce_path, combine="nested", engine="netcdf4")
         concat = concat.drop_duplicates(dim="time", keep="last")
-
-        #Interpolating the values in time, transforming it from daily to hourly values
-        concat = concat.resample(time="1H").interpolate("linear")
-
-        Utils.write_mrc(concat, simname=self.simname)
+        if self.config["input_files"]["set_domain"]:
+            concat = concat.sel(
+                lon=slice(lon_min, lon_max), lat=slice(lat_min, lat_max)
+            )
+        # Interpolating the values in time, transforming it from daily to hourly values
+        concat = concat.resample(time="1h").interpolate("linear")
+        Utils.write_mrc(concat, exp_folder=self.exp_folder)
+        self._copy_nc_files(oce_path, f"{self.exp_folder}/oce_files/")
     
-    def process_winds(self):
+    def process_winds(self, met_path: str = None):
 
         logger.info("Pre processing winds")
-        concat = xr.open_mfdataset(f'{self.preproc_data_path}/{self.simname}/met_files/*.nc',combine='nested')
+        lon_min, lon_max, lat_min, lat_max = self.domain
+        # opening all files in the directory and concatenating them automatically through open_mfdataset
+        if met_path is None:
+            met_path = f"{self.exp_folder}/met_files/*.nc"
+        met_path = os.path.join(met_path, "*.nc")
+        if glob(met_path) == []:
+            met_path = f"{self.exp_folder}/met_files/*.nc"
+        concat = xr.open_mfdataset(met_path, combine="nested", engine="netcdf4")
         concat = concat.drop_duplicates(dim="time", keep="first")
-        concat = concat.resample(time="1H").interpolate("linear")
+        # Interpolating the values in time, transforming it from daily to hourly values
+        concat = concat.resample(time="1h").interpolate("linear")
+        # Handle longitude and latitude
+        concat["lon"] = xr.where(
+            concat["lon"] > 180, concat["lon"] - 360, concat["lon"]
+        )
+        concat = concat.sortby("lat")
+        concat = concat.sortby("lon")
+        # Iterating at each hour to generate the .eri files
+        for date in self.date_list:
+            # Call write eri function located in medslik.utils file
+            Utils.write_eri(concat, date, exp_folder=self.exp_folder)
+        self._copy_nc_files(met_path, f"{self.exp_folder}/met_files/")
 
-        #iterating at each hour to generate the .eri files
-        for date in self.date_list:            
-            
-            #Call write eri function located in medslik.utils file
-            Utils.write_eri(concat,date,simname=self.simname)
+    def _copy_nc_files(self, src_files: str, dst_dir: str) -> None:
+        # Use glob to find all .nc files in the source directory
+        nc_files = glob(src_files)
+        # Loop through each file
+        for src_file in nc_files:
+            # Get the destination file path
+            dst_file = os.path.join(dst_dir, os.path.basename(src_file))
+            # Check if the destination file already exists
+            if not os.path.exists(dst_file):
+                # Copy the file if it doesn't exist
+                shutil.copy(src_file, dst_file)
 
     def process_bathymetry(self,gebco):
 
@@ -113,7 +141,7 @@ class PreProcessing:
         land_mask = np.where(mdk_z <= 0)
         mdk_z[land_mask]=9999
 
-        BathFile=open(f'{self.preproc_data_path}/{self.simname}/bnc_files/dtm.bath', "w")
+        BathFile=open(f'{self.exp_folder}/bnc_files/dtm.bath', "w")
         BathFile.write("MEDSLIK-II compatible bathymetry file. Degraded resolution based on GEBCO 30''\n")
         BathFile.write("%-7.4f %-7.4f %-7.4f %-7.4f \n" % (np.min(grid.lon.values),np.max(grid.lon.values),np.min(grid.lat.values),np.max(grid.lat.values)))
         BathFile.write("%d %d \n" % (llon,llat))
@@ -158,7 +186,7 @@ class PreProcessing:
         shp = shp.explode(index_parts=True)
 
         # writes the first line of the .map file. It should contain the # of "isles"
-        CoastFile=open(f'{self.preproc_data_path}/{self.simname}/bnc_files/dtm.map','w')
+        CoastFile=open(f'{self.exp_folder}/bnc_files/dtm.map','w')
         CoastFile.write("%-4.0f \n" % (len(shp)))
         iTargetSites=[]
         iTargetSite=np.array([0.,0.,0.,0.])
@@ -180,10 +208,10 @@ class PreProcessing:
 
     def process_medslik_memmory_array(self):
         #ocean
-        my_o = xr.open_mfdataset(f'{self.preproc_data_path}/{self.simname}/oce_files/*nc')
+        my_o = xr.open_mfdataset(f'{self.exp_folder}/oce_files/*nc')
 
         #wind
-        # my_w = xr.open_dataset(glob(f'{self.preproc_data_path}/{self.simname}/met_files/*nc')[0]).isel(time=0)['U10M'].values.shape
+        # my_w = xr.open_dataset(glob(f'{self.exp_folder}/{self.simname}/met_files/*nc')[0]).isel(time=0)['U10M'].values.shape
         
         #obtaining the maximum array
         nmax = np.max([np.max(my_o.isel(time=0).uo.values.shape)])
@@ -191,7 +219,7 @@ class PreProcessing:
         # modify medslik_ii
         print('...medslik_ii.for...')
 
-        med_for = f'{self.preproc_data_path}{self.simname}/xp_files/medslik_II.for'
+        med_for = f'{self.exp_folder}/xp_files/medslik_II.for'
 
         subprocess.run([f'cp src/templates/medslik_II_template.for {med_for}'],shell=True)
 
@@ -200,7 +228,7 @@ class PreProcessing:
 
     def configuration_parameters(self):
 
-        subprocess.run([f'cp src/templates/config2.txt {self.preproc_data_path}{self.simname}/xp_files/config2.txt'],shell=True)
+        subprocess.run([f'cp src/templates/config2.txt {self.exp_folder}/xp_files/config2.txt'],shell=True)
 
     def common_grid(self):
 
@@ -210,7 +238,8 @@ class PreProcessing:
         Default uses current grid for the area of interest
         '''
 
-        grid = glob(f'{self.preproc_data_path}/{self.simname}/oce_files/*.nc')[0]
+        lon_min, lon_max, lat_min, lat_max = self.domain
+        grid = glob(f"{self.exp_folder}/oce_files/*.nc")[0]
 
         grid = xr.open_dataset(grid)
 
@@ -283,14 +312,14 @@ class PreProcessing:
         if use_slk_contour == True:
             slik = "YES"
             if separate_slicks == False:
-                with open(f"{self.preproc_data_path}/{simname}/xp_files/slick_countour.txt", "r") as file1:
+                with open(f"{self.exp_folder}/{simname}/xp_files/slick_countour.txt", "r") as file1:
                     content = file1.read()
                 with open(config_file, "a") as file2:
                     # Append the contents of the first file to config file
                     file2.write(content)
             else:
                 with open(
-                    f"{self.preproc_data_path}/{simname}/xp_files/slick{s_num+1}/slick_countour.txt", "r"
+                    f"{self.exp_folder}/{simname}/xp_files/slick{s_num+1}/slick_countour.txt", "r"
                 ) as file1:
                     content = file1.read()
                 with open(config_file, "a") as file2:
