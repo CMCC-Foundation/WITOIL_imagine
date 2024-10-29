@@ -18,8 +18,8 @@
     download_data = true
     download_curr = true
     download_wind = true
-    copernicus_user = "jramos7"
-    copernicus_password = "Hamstervoador1"
+    copernicus_user = "user"
+    copernicus_password = "password"
 [input_files]
     set_domain = false
     delta = [0.75] # default distance in degrees to download or crop data in case lat and lon areas are not provided

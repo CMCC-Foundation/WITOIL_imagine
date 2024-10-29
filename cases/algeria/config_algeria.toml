@@ -15,8 +15,8 @@
     download_data = true
     download_curr = true
     download_wind = true
-    copernicus_user = 'jramos7'
-    copernicus_password = 'Hamstervoador1'
+    copernicus_user = 'user'
+    copernicus_password = 'password'
     ecmwf_api = 'None'
 [input_files]
     preproc_path = "cases/" # where preprocessed MET/OCE data should be placed
