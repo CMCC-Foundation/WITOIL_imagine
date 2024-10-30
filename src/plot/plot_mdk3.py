@@ -35,7 +35,7 @@ class MedslikIIPlot:
             self.out_directory, "oil_concentration.nc"
         )
 
-    def plot_matplotlib(self):
+    def plot_matplotlib(self,lon_min,lon_max,lat_min,lat_max):
 
         # read coasline
         land = gpd.read_file(self.config["input_files"]["dtm"]["coastline_path"])
@@ -66,8 +66,8 @@ class MedslikIIPlot:
         curr = curr.isel(depth=0)
 
         # defining plot boundaries
-        lon_min, lon_max = self.config["plot_options"]["plot_lon"]
-        lat_min, lat_max = self.config["plot_options"]["plot_lat"]
+        # lon_min, lon_max = self.config["plot_options"]["plot_lon"]
+        # lat_min, lat_max = self.config["plot_options"]["plot_lat"]
 
         # cropping coastline to area of interest
         rec = land.cx[lon_min:lon_max, lat_min:lat_max]

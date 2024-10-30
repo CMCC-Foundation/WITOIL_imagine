@@ -10,6 +10,21 @@ import time
 # Functions outside this script
 from src.utils.utils import *
 
+def write_cds(token):
+    """
+    This function will write the cds token in the home directory.
+
+    If it does not work automatically, please create it mannualy, replacing {token} with your token
+    """
+    file_path = os.path.expanduser("~/.cdsapirc")
+    mode = "x"
+    if os.path.exists(file_path):
+        mode = "w"
+    with open(file_path, mode=mode) as f:
+        f.write("url: https://cds.climate.copernicus.eu/api\n")
+        f.write(f"key: {token}")
+        f.close()
+
 def get_era5(xmin,xmax,ymin,ymax,start_date,end_date,output_path,output_name):
     server = cdsapi.Client()
 

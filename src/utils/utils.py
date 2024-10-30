@@ -62,7 +62,42 @@ class Utils:
         return grid_corners
 
     @staticmethod
-    def check_land(lon, lat):
+    def read_txt_config1(config: str, *keys: list[str]) -> tuple[float]:
+        """
+        Read config file
+        """
+        df = pd.read_csv(
+            config, delimiter="=", index_col=None, header=None, usecols=None
+        )
+        values = list()
+        for key in keys:
+            for val in df.values:
+                if val[0] == key:
+                    values.append(float(val[1][:7]))
+                    break
+        return tuple(values)
+
+    @staticmethod
+    def set_product(product_name: str) -> dict[NDArray]:
+        """
+        Set input and output reference hours based on product name.
+        """
+        if product_name == "mercator_daily":
+            output_ref_hours = {"start": 24, "end": 47}
+            input_ref_hours = [12, 36, 60]
+        elif product_name == "era5":
+            output_ref_hours = {"start": 0, "end": 23}
+            input_ref_hours = [0, 6, 12, 18, 24]
+        else:
+            raise ValueError("Invalid product name")
+            # Compute
+        output_hours = np.arange(output_ref_hours["start"], output_ref_hours["end"] + 1)
+        input_hours = np.array(input_ref_hours)
+        dict_hours = {"irh": input_hours, "orh": output_hours}
+        return dict_hours
+
+    @staticmethod
+    def check_land(lon, lat, gshhg_path: str):
         """
         This script receives a lon and lat value and  checks if the position is within land or sea
         It uses a shapefile of world boundaries currently based in geopandas database
@@ -73,12 +108,7 @@ class Utils:
         Otherwise returns 1
         """
 
-        this_path = os.path.dirname(os.path.abspath(__file__))
-        natural_earth_path = os.path.join(
-            this_path,
-            "../../data/ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp",
-        )
-        world = gpd.read_file(natural_earth_path)
+        world = gpd.read_file(gshhg_path)
         point = Point(lon, lat)
         is_within_land = world.geometry.contains(point).any()
         if is_within_land:
@@ -100,11 +130,9 @@ class Utils:
             if dt > datetime.datetime.today():
                 dt = "Date provided is in the future. No data will be available"
             if (datetime.datetime.today() - dt) < datetime.timedelta(days=5):
-                raise Warning(
-                    "ERA5 data might not be available in case you need downloads"
-                )
+                raise Warning('ERA5 data might not be available in case you need downloads')
         except:
-            raise ValueError("Date not provided in correct format")
+            raise ValueError('Date not provided in correct format')
         return dt
 
     @staticmethod
@@ -420,8 +448,7 @@ class Utils:
             "mesh2d_windx": "U10M",
             "v10": "V10M",
             "mesh2d_windy": "V10M",
-            "valid_time": "time",
-            "time_counter": "time",
+            "valid_time":"time","time_counter": "time",
         }
         # Rename variables only if they exist in the dataset
         for old_name, new_name in variables_to_rename.items():
@@ -431,18 +458,17 @@ class Utils:
         return ds
     
     @staticmethod
-    def oil_volume_shapefile(config, dens = 0.922, thick = 0.00001):
+    def oil_volume_shapefile(config, dens=0.922, thick=0.00001):
+        """
+        This method considers that the simulation will start from a shapefile, providing an area.
 
-        '''
-                This method considers that the simulation will start from a shapefile, providing an area.
+        Thefore, volume of oil will be calculated from it, since it is difficult to estimate without the proper knowledge.
 
-                Thefore, volume of oil will be calculated from it, since it is difficult to estimate without the proper knowledge.
+        density and thickness are defined as standard, but could be modified for different oil slick behaviour or oil characteristic.
 
-                density and thickness are defined as standard, but could be modified for different oil slick behaviour or oil characteristic.
+        """
 
-        '''
-
-        obs = gpd.read_file(config['input_files']['shapefile']['shape_path'])
+        obs = gpd.read_file(config["input_files"]["shapefile"]["shape_path"])
 
         ######## OBTAINING THE VOLUME FOR THE GIVEN SHAPEFILE ########
 
@@ -451,11 +477,11 @@ class Utils:
         centroid_lat = obs.centroid.y.mean()
 
         # Calculate the UTM zone
-        utm_zone = int((centroid_lon + 180) / 6) + 1  
+        utm_zone = int((centroid_lon + 180) / 6) + 1
 
         # Define the UTM CRS based on the determined zone
         utm_crs = CRS.from_epsg(32600 + utm_zone)  # EPSG code for UTM zones
-            
+
         # Reproject the GeoDataFrame to UTM
         gdf_utm = obs.to_crs(utm_crs)
 
@@ -463,12 +489,21 @@ class Utils:
         area = gdf_utm.area.sum()
 
         # Obtain the volume from the calculated area, density and thickness.
-        volume = np.round(area*dens*thick,2)
+        volume = np.round(area * dens * thick, 2)
 
         return volume
 
 
 if __name__ == "__main__":
+    path = "config1.txt"
+    try:
+        values = Utils.read_txt_config1(path, "sim_length", "SIM_NAME", "lat_degree")
+    except ValueError:
+        pass
+    values = Utils.read_txt_config1(path, "sim_length", "lat_degree")
+    print(values)
+    print(Utils.set_product("era5"))
+    print(Utils.set_product("mercator_daily"))
     result = Utils.compute_domain(120, 33, 41, 35, 10)
     result2 = Utils.compute_domain(480, 33, 41, 35, 10)
     assert result2 == result
