@@ -4,13 +4,10 @@ FROM continuumio/miniconda3
 # Set the working directory
 WORKDIR /app
 
-COPY requirements_conda.txt .
-
 COPY requirements.txt .
 
 # Create a Conda environment with a specific Python version
-RUN conda create -n medslik --file ./requirements_conda.txt
-
+RUN conda create -n medslik python=3.11
 # Make RUN commands use the new environment
 SHELL ["conda", "run", "-n", "medslik", "/bin/bash", "-c"]
 
@@ -34,14 +31,6 @@ RUN adduser \
 
 #Allow appuser to navigate and read scripts
 RUN chown -R appuser:appuser /Medslik-II
-
-# Download dependencies as a separate step to take advantage of Docker's caching.
-# Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
-# Leverage a bind mount to requirements.txt to avoid having to copy them into
-# into this layer.
-# RUN --mount=type=cache,target=/root/.cache/pip \
-#     --mount=type=bind,source=requirements.txt,target=requirements.txt \
-#     python -m pip install -r requirements.txt
 
 RUN apt-get update \
   && apt-get install -yq --no-install-recommends \
@@ -138,9 +127,5 @@ ENV PATH /opt/conda/envs/medslik/bin:$PATH
 # Copy the source code into the container.
 COPY --chown=appuser:appuser . .
 
-EXPOSE 8501
-
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
-
 # Run the application.
-ENTRYPOINT ["streamlit", "run", "interface/WITOIL_on_Cloud.py","--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["sleep", "infinity"] 
