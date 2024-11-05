@@ -9,8 +9,8 @@ from glob import glob
 from numpy.typing import NDArray
 from datetime import datetime, timedelta, date
 
-from src.utils.utils import Utils
-from src.utils.config import Config
+from WITOIL_iMagine.src.utils.utils import Utils
+from WITOIL_iMagine.src.utils.config import Config
 
 import logging
 
@@ -56,9 +56,8 @@ class PreProcessing:
         logger.info("Pre processing currents")
         lon_min, lon_max, lat_min, lat_max = self.domain
         # opening all files in the directory and concatenating them automatically through open_mfdataset
-        if oce_path is None:
-            oce_path = f"{self.exp_folder}/oce_files/"
-        oce_path = os.path.join(oce_path, "*.nc")
+        oce_path = f"{self.exp_folder}/oce_files/*.nc"
+
         if glob(oce_path) == []:
             oce_path = f"{self.exp_folder}/oce_files/*.nc"
         concat = xr.open_mfdataset(oce_path, combine="nested", engine="netcdf4")
@@ -77,9 +76,8 @@ class PreProcessing:
         logger.info("Pre processing winds")
         lon_min, lon_max, lat_min, lat_max = self.domain
         # opening all files in the directory and concatenating them automatically through open_mfdataset
-        if met_path is None:
-            met_path = f"{self.exp_folder}/met_files/*.nc"
-        met_path = os.path.join(met_path, "*.nc")
+        met_path = f"{self.exp_folder}/met_files/*.nc"
+
         if glob(met_path) == []:
             met_path = f"{self.exp_folder}/met_files/*.nc"
         concat = xr.open_mfdataset(met_path, combine="nested", engine="netcdf4")
@@ -221,14 +219,14 @@ class PreProcessing:
 
         med_for = f'{self.exp_folder}/xp_files/medslik_II.for'
 
-        subprocess.run([f'cp src/templates/medslik_II_template.for {med_for}'],shell=True)
+        subprocess.run([f'cp WITOIL_iMagine/src/templates/medslik_II_template.for {med_for}'],shell=True)
 
         # Replacing NMAX in medslik fortran with a python function
         Utils.search_and_replace(med_for, 'NMAX', str(nmax))
 
     def configuration_parameters(self):
 
-        subprocess.run([f'cp src/templates/config2.txt {self.exp_folder}/xp_files/config2.txt'],shell=True)
+        subprocess.run([f'cp WITOIL_iMagine/src/templates/config2.txt {self.exp_folder}/xp_files/config2.txt'],shell=True)
 
     def common_grid(self):
 
@@ -270,11 +268,11 @@ class PreProcessing:
         print("...config1.txt...")
         # Iterating through slicks or doing for single simulation
         if separate_slicks == False:
-            config_file = f"cases/{simname}/xp_files/config1.txt"
+            config_file = f"WITOIL_iMagine/cases/{simname}/xp_files/config1.txt"
         else:
-            config_file = f"cases/{simname}/xp_files/slick{s_num+1}/config1.txt"
+            config_file = f"WITOIL_iMagine/cases/{simname}/xp_files/slick{s_num+1}/config1.txt"
         subprocess.run(
-            [f"cp src/templates/config1_template_0.txt {config_file}"], shell=True
+            [f"cp WITOIL_iMagine/src/templates/config1_template_0.txt {config_file}"], shell=True
         )
         # adding spill Name - Add slick number if separate slicks
         if separate_slicks == False:
