@@ -8,7 +8,7 @@ import subprocess
 import time
 
 # Functions outside this script
-from src.utils.utils import *
+from WITOIL_iMagine.src.utils.utils import *
 
 def write_cds(token):
     """
@@ -73,13 +73,13 @@ def get_era5(xmin,xmax,ymin,ymax,start_date,end_date,output_path,output_name):
 
 def process_era5(output_path,output_name):
 
-    met = xr.open_mfdataset('data/ERA5/temp*.nc')
+    met = xr.open_mfdataset('WITOIL_iMagine/data/ERA5/temp*.nc')
     met = Utils.rename_netcdf_variables_mdk3(met)
 
     met.to_netcdf(output_name)
 
     #remove the temporary files
-    subprocess.run([f'rm -rf {output_path}/temp*.nc'],shell=True)  
+    subprocess.run([f'rm -rf {output_path}/temp*.nc'],shell=True)
 
 
 if __name__ == '__main__':

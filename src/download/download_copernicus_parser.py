@@ -7,7 +7,7 @@ import pandas as pd
 import xarray as xr
 
 # Functions outside this script
-from src.utils.utils import *
+from WITOIL_iMagine.src.utils.utils import *
 
 
 def download_copernicus(

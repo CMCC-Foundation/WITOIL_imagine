@@ -192,7 +192,7 @@ class MedslikIIPlot:
         """
         config = self.config
         current_folder = os.path.dirname(os.path.abspath(__file__))
-        path_to_plotspill = 'src/plot/plotngl.py'
+        path_to_plotspill = 'WITOIL_iMagine/src/plot/plotngl.py'
         root_directory = self.root_directory
         spill_lon = config["simulation"]["spill_lon"][0]
         spill_lat = config["simulation"]["spill_lat"][0]
