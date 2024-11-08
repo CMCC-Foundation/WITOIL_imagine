@@ -59,6 +59,12 @@ RUN apt-get update \
   vim \
   wget \
   zip
+
+#Downloading Gebco Bathymetry data. NEEDS TO BE CHECKED!
+ADD https://www.bodc.ac.uk/data/open_download/gebco/gebco_2024_sub_ice_topo/zip/ data/gebco/
+
+#Downloading GSHHS Coastline data. NEEDS TO BE CHECKED!
+ADD https://www.ngdc.noaa.gov/mgg/shorelines/data/gshhg/latest/gshhg-shp-2.3.7.zip
   
 # build netcdf with gcc and g-fortran
 ENV CC=gcc
