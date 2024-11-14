@@ -29,8 +29,8 @@
     delta = [0.75] # default domain length in degrees (applied to both lon/lat), to download or crop data
     # note: delta is used only if set_domain = false
     [input_files.dtm]
-        bathymetry_path = "WITOIL_iMagine/data/gebco/GEBCO_2023.nc" # GEBCO 2023 bathymetry file
-        coastline_path = "WITOIL_iMagine/data/gshhs/f/GSHHS_f_L1.shp" # coastline shapefile gshhg
+        bathymetry_path = "WITOIL_iMagine/data/gebco/GEBCO_2024_sub_ice_topo.nc"
+        coastline_path = "WITOIL_iMagine/data/gshhs/GSHHS_shp/f/GSHHS_f_L1.shp"
     [input_files.metoce]
         oce_data_path = false # to provide if dowload_curr = false
         met_data_path = false # to provide if dowload_wind = false
