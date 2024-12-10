@@ -1,4 +1,4 @@
-# NOTE: this config is provided as a TEMPLATE, it should be changed by the user before using it.
+## NOTE: this config is provided as a TEMPLATE, it should be changed by the user before using it. 
 [simulation]
     name = "syria_new" # name of the simulation.
     experiment_path = "WITOIL_iMagine/cases/" # path where experiment folder should be placed
