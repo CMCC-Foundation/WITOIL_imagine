@@ -181,7 +181,7 @@ class MedslikIIPlot:
                     {self.out_figures}/oil_concentration_{self.config['simulation']['name']}.gif"
             ],
             # shell=True,
-        )
+        ) # nosec
 
     def plot_pyngl(
         self,
@@ -210,7 +210,7 @@ class MedslikIIPlot:
             ],
             # shell=True,
             check=True,
-        )
+        ) # nosec
 
 
 if __name__ == "__main__":
