@@ -113,10 +113,13 @@ class PreProcessing:
         grid = self.grid
         gebco = xr.open_dataset(gebco)
 
-        try:
-            grid = grid.rename({'nav_lat':'lat','nav_lon':'lon'})
-        except:
-            pass
+        if 'nav_lat' in grid and 'nav_lon' in grid:
+            grid = grid.rename({'nav_lat': 'lat', 'nav_lon': 'lon'})
+
+        # try:
+        #     grid = grid.rename({'nav_lat':'lat','nav_lon':'lon'})
+        # except:
+        #     pass
 
         # interpolation on medslik grid
         med = gebco.interp(lon=grid.lon.values.tolist(),lat=grid.lat.values.tolist())
@@ -150,10 +153,13 @@ class PreProcessing:
         
         grid = self.grid
 
-        try:
-            grid = grid.rename({'nav_lat':'lat','nav_lon':'lon'})
-        except:
-            pass
+        if 'nav_lat' in grid and 'nav_lon' in grid:
+            grid = grid.rename({'nav_lat': 'lat', 'nav_lon': 'lon'})
+
+        # try:
+        #     grid = grid.rename({'nav_lat':'lat','nav_lon':'lon'})
+        # except:
+        #     pass
 
         # 1 degree buffer to collect more coastline
         buffer = 1
