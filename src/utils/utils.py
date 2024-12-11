@@ -416,13 +416,13 @@ class Utils:
     def run_process_gebco(gebco, grid, output_dir):
         script_name = "scripts/pre_processing/preproc_gebco_mdk2.py"
         # Run the external Python script as a subprocess
-        subprocess.run([f"{sys.executable}", script_name, gebco, grid, output_dir])
+        subprocess.run([f"{sys.executable}", script_name, gebco, grid, output_dir]) # nosec
 
     @staticmethod
     def run_process_gshhs(gshhs, grid, output_dir):
         script_name = "scripts/pre_processing/preproc_gshhs_mdk2.py"
         # Run the external Python script as a subprocess
-        subprocess.run([f"{sys.executable}", script_name, gshhs, grid, output_dir])
+        subprocess.run([f"{sys.executable}", script_name, gshhs, grid, output_dir]) # nosec
 
     def rename_netcdf_variables_mdk3(ds):
         """
@@ -506,5 +506,8 @@ if __name__ == "__main__":
     print(Utils.set_product("mercator_daily"))
     result = Utils.compute_domain(120, 33, 41, 35, 10)
     result2 = Utils.compute_domain(480, 33, 41, 35, 10)
-    assert result2 == result
+
+    if result2 != result:
+        raise AssertionError(f"Validation failed: result2 ({result2}) != result ({result})")
+
     print(result)
